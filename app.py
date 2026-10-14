@@ -88,7 +88,7 @@ X = df[['hora']]
 modelo_temp = LinearRegression().fit(X, df['temperatura'])
 modelo_umid = LinearRegression().fit(X, df['umidade'])
 
-# Seção de Previsão Horária Estilo Google Clima
+# Seção de Previsão Horária
 st.subheader("⏱️ Previsão Horária e Estimativa da IA")
 st.markdown("Acompanhamento contínuo e projeção inteligente para as próximas horas:")
 
@@ -107,15 +107,14 @@ for i, coluna in enumerate(colunas_horarias):
         u_exibida = modelo_umid.predict([[h_exibida]])[0]
         label_status = f"+{i}h"
         
-        # Seleção automática do ícone com base na umidade e temperatura
         if u_exibida > 80:
-            icone = "⛈️" # Tempestade
+            icone = "⛈️"
         elif u_exibida > 65:
-            icone = "🌧️" # Chuvoso
+            icone = "🌧️"
         elif t_exibida < 22:
-            icone = "☁️" # Nublado
+            icone = "☁️"
         else:
-            icone = "☀️" # Ensolarado
+            icone = "☀️"
 
     with coluna:
         st.markdown(f"""
