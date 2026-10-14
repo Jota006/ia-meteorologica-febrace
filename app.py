@@ -21,8 +21,8 @@ LONGITUDE = -50.5458
 CIDADE = "Jales - SP"
 
 @st.cache_data(ttl=300)
-def buscar_dados_horarios_completos():
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&hourly=temperature_2m,relative_humidity_2m,weathercode"
+def buscar_dados_completos_do_dia():
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&hourly=temperature_2m,relative_humidity_2m"
     
     agora_local = datetime.utcnow() - timedelta(hours=3)
     hora_atual = agora_local.hour
@@ -73,7 +73,7 @@ def buscar_dados_horarios_completos():
 
 df, temp_atual, umidade_atual, hora_atual = buscar_dados_completos_do_dia()
 
-# Bloco Principal "Agora" (Estilo Google Clima)
+# Bloco Principal "Agora"
 st.subheader(f"📍 Local Monitorado: {CIDADE}")
 
 col_agora1, col_agora2, col_agora3 = st.columns([2, 2, 2])
@@ -90,30 +90,4 @@ modelo_umid = LinearRegression().fit(X, df['umidade'])
 
 # Seção estilo "Google Clima" com os cards horizontais por horário
 st.subheader("⏱️ Previsão Horária e Estimativa da IA")
-st.markdown("Acompanhamento contínuo e projeção inteligente para as próximas horas:")
-
-# Criamos colunas lado a lado simulando o painel horizontal de horários
-colunas_horarias = st.columns(6)
-
-# Exibimos a hora atual e as próximas 5 horas em blocos visuais (cards)
-for i, coluna in enumerate(colunas_horarias):
-    if i == 0:
-        h_exibida = hora_atual
-        t_exibida = temp_atual
-        u_exibida = umidade_atual
-        label_status = "Agora"
-        icone = "⛅"
-    else:
-        h_exibida = (hora_atual + i) % 24
-        t_exibida = modelo_temp.predict([[h_exibida]])[0]
-        u_exibida = modelo_umid.predict([[h_exibida]])[0]
-        label_status = f"+{i}h"
-        # Escolhe um emoji dinâmico baseado na umidade/temperatura prevista
-        icone = "🌧️" if u_exibida > 75 else ("☀️" if t_exibida > 24 else "🌤️")
-
-    with coluna:
-        st.markdown(f"""
-        <div style="background-color: #1e1e1e; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #333;">
-            <p style="margin: 0; font-size: 14px; color: #aaa;">{label_status}</p>
-            <h3 style="margin: 5px 0; color: #fff;">{h_exibida}:00</h3>
-            <p style="font-size: 24px; margin: 5px 0;">{icone
+st.markdown("
