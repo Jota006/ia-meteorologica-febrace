@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 import plotly.express as px
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuração da Página
 st.set_page_config(
@@ -20,19 +20,21 @@ LATITUDE = -20.2668
 LONGITUDE = -50.5458
 CIDADE = "Jales - SP"
 
-# Função para buscar dados reais e atualizar o histórico de forma inteligente
+# Função para buscar dados reais e atualizar o histórico
 @st.cache_data(ttl=300) # Atualiza a cada 5 minutos automaticamente
 def carregar_dados_reais():
     url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&current=temperature_2m,relative_humidity_2m"
+    
+    # Ajusta o horário do servidor para o fuso de Brasília/Jales (UTC-3)
+    hora_atual = (datetime.utcnow() - timedelta(hours=3)).hour
+
     try:
         resposta = requests.get(url)
         dados = resposta.json()
         temp_atual = dados['current']['temperature_2m']
         umidade_atual = dados['current']['relative_humidity_2m']
-        hora_atual = datetime.now().hour
         
-        # Histórico dinâmico baseado no dia para alimentar a IA
-        # Simulamos algumas horas anteriores e injetamos o dado real atual no final
+        # Histórico dinâmico baseado no horário local correto
         horas = [(hora_atual - 4) % 24, (hora_atual - 3) % 24, (hora_atual - 2) % 24, (hora_atual - 1) % 24, hora_atual]
         temperaturas = [temp_atual - 2.0, temp_atual - 1.5, temp_atual - 1.0, temp_atual - 0.5, temp_atual]
         umidades = [umidade_atual + 5, umidade_atual + 4, umidade_atual + 2, umidade_atual + 1, umidade_atual]
@@ -44,13 +46,13 @@ def carregar_dados_reais():
         })
         return df, temp_atual, umidade_atual, hora_atual
     except:
-        # Fallback de segurança caso caia a internet
+        # Fallback de segurança caso ocorra erro na rede
         df = pd.DataFrame({
-            'hora': [8, 10, 12, 14, 15],
+            'hora': [(hora_atual - 4) % 24, (hora_atual - 3) % 24, (hora_atual - 2) % 24, (hora_atual - 1) % 24, hora_atual],
             'temperatura': [22.5, 24.0, 27.5, 29.1, 28.5],
             'umidade': [75, 70, 55, 48, 50]
         })
-        return df, 28.5, 50, datetime.now().hour
+        return df, 28.5, 50, hora_atual
 
 df, temp_atual, umidade_atual, hora_atual = carregar_dados_reais()
 
@@ -58,7 +60,7 @@ df, temp_atual, umidade_atual, hora_atual = carregar_dados_reais()
 st.subheader(f"📍 Local Monitorado: {CIDADE}")
 col1, col2, col3 = st.columns(3)
 
-col1.metric(label="🕒 Horário da Consulta", value=f"{hora_atual}:00 hrs")
+col1.metric(label="🕒 Horário da Consulta (Horário Local)", value=f"{hora_atual}:00 hrs")
 col2.metric(label="🌡️ Temperatura Atual (API)", value=f"{temp_atual} °C")
 col3.metric(label="💧 Umidade Relativa (API)", value=f"{umidade_atual} %")
 
