@@ -90,4 +90,47 @@ modelo_umid = LinearRegression().fit(X, df['umidade'])
 
 # Seção estilo "Google Clima" com os cards horizontais por horário
 st.subheader("⏱️ Previsão Horária e Estimativa da IA")
-st.markdown("
+st.markdown("Acompanhamento contínuo e projeção inteligente para as próximas horas:")
+
+colunas_horarias = st.columns(6)
+
+for i, coluna in enumerate(colunas_horarias):
+    if i == 0:
+        h_exibida = hora_atual
+        t_exibida = temp_atual
+        u_exibida = umidade_atual
+        label_status = "Agora"
+        icone = "⛅"
+    else:
+        h_exibida = (hora_atual + i) % 24
+        t_exibida = modelo_temp.predict([[h_exibida]])[0]
+        u_exibida = modelo_umid.predict([[h_exibida]])[0]
+        label_status = f"+{i}h"
+        icone = "🌧️" if u_exibida > 75 else ("☀️" if t_exibida > 24 else "🌤️")
+
+    with coluna:
+        st.markdown(f"""
+        <div style="background-color: #1e1e1e; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #333;">
+            <p style="margin: 0; font-size: 14px; color: #aaa;">{label_status}</p>
+            <h3 style="margin: 5px 0; color: #fff;">{h_exibida}:00</h3>
+            <p style="font-size: 24px; margin: 5px 0;">{icone}</p>
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #ff4b4b;">{t_exibida:.1f}°C</p>
+            <p style="margin: 0; font-size: 12px; color: #1c83e1;">💧 {u_exibida:.0f}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+st.divider()
+
+# Gráficos Duplos (Temperatura e Umidade)
+st.subheader("📈 Análise Gráfica Detalhada (Das 00:00 em diante)")
+col_graf1, col_graf2 = st.columns(2)
+
+with col_graf1:
+    fig_temp = px.line(df, x='hora', y='temperatura', markers=True, title="Evolução da Temperatura (°C)")
+    fig_temp.update_traces(line_color='#FF4B4B')
+    st.plotly_chart(fig_temp, use_container_width=True)
+
+with col_graf2:
+    fig_umid = px.line(df, x='hora', y='umidade', markers=True, title="Evolução da Umidade Relativa (%)")
+    fig_umid.update_traces(line_color='#1C83E1')
+    st.plotly_chart(fig_umid, use_container_width=True)
