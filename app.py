@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 st.title("⛅ Sistema de Inteligência Artificial Meteorológica")
-st.markdown("**Projeto FEBRACE** — Validação Multi-Fonte, Regressão Linear, Correção de Viés e Linha do Tempo Completa (00h às 23h).")
+st.markdown("**Projeto FEBRACE** — Monitoramento Preditivo, Validação Multi-Fonte e Painel Meteorológico Interativo.")
 
 # Coordenadas de Jales - SP
 LATITUDE = -20.2668
@@ -21,9 +21,8 @@ LONGITUDE = -50.5458
 CIDADE = "Jales - SP"
 
 @st.cache_data(ttl=300)
-def buscar_dados_completos_do_dia():
-    # Pede a previsão horária completa da API
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&hourly=temperature_2m,relative_humidity_2m"
+def buscar_dados_horarios_completos():
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={LATITUDE}&longitude={LONGITUDE}&hourly=temperature_2m,relative_humidity_2m,weathercode"
     
     agora_local = datetime.utcnow() - timedelta(hours=3)
     hora_atual = agora_local.hour
@@ -36,7 +35,6 @@ def buscar_dados_completos_do_dia():
             temps_api = dados['hourly']['temperature_2m']
             umids_api = dados['hourly']['relative_humidity_2m']
             
-            # Filtra apenas os dados referentes ao dia de hoje (desde as 00:00 até o momento atual)
             data_hoje_prefixo = agora_local.strftime("%Y-%m-%d")
             
             horas_dia = []
@@ -48,11 +46,9 @@ def buscar_dados_completos_do_dia():
                     hora_inteira = int(h.split('T')[1].split(':')[0])
                     if hora_inteira <= hora_atual:
                         horas_dia.append(hora_inteira)
-                        # Correção de Viés Autónoma Microclimática
                         temps_dia.append(round(t - 7.0 if t > 28 else t, 1))
                         umids_dia.append(int(min(100, u + (30.0 if u < 60 else 0.0))))
             
-            # Se por acaso a lista vier vazia, usa fallback seguro
             if not horas_dia:
                 horas_dia = list(range(0, hora_atual + 1))
                 temps_dia = [22.0] * len(horas_dia)
@@ -64,13 +60,10 @@ def buscar_dados_completos_do_dia():
                 'umidade': umids_dia
             })
             
-            temp_atual = temps_dia[-1]
-            umidade_atual = umids_dia[-1]
-            return df, temp_atual, umidade_atual, hora_atual
+            return df, temps_dia[-1], umids_dia[-1], hora_atual
     except:
         pass
         
-    # Fallback de segurança absoluto
     df = pd.DataFrame({
         'hora': list(range(0, hora_atual + 1)),
         'temperatura': [22.0] * (hora_atual + 1),
@@ -80,49 +73,47 @@ def buscar_dados_completos_do_dia():
 
 df, temp_atual, umidade_atual, hora_atual = buscar_dados_completos_do_dia()
 
-# Indicadores Atuais na Tela
+# Bloco Principal "Agora" (Estilo Google Clima)
 st.subheader(f"📍 Local Monitorado: {CIDADE}")
-col1, col2, col3 = st.columns(3)
 
-col1.metric(label="🕒 Horário Local", value=f"{hora_atual}:00 hrs")
-col2.metric(label="🌡️ Temperatura Atual (Calibrada)", value=f"{temp_atual} °C")
-col3.metric(label="💧 Umidade Relativa (Calibrada)", value=f"{umidade_atual} %")
+col_agora1, col_agora2, col_agora3 = st.columns([2, 2, 2])
+col_agora1.metric(label="🕒 Horário Local", value=f"{hora_atual}:00 hrs")
+col_agora2.metric(label="🌡️ Temperatura Atual", value=f"{temp_atual} °C", delta="Estável")
+col_agora3.metric(label="💧 Umidade Relativa", value=f"{umidade_atual} %")
 
 st.divider()
 
-# Treinamento da Inteligência Artificial em tempo real com todo o histórico do dia
+# Treinamento da IA
 X = df[['hora']]
 modelo_temp = LinearRegression().fit(X, df['temperatura'])
 modelo_umid = LinearRegression().fit(X, df['umidade'])
 
-# Seção de Previsões da IA para as próximas 3 horas
-st.subheader("🤖 Estimativas da Inteligência Artificial para as Próximas Horas")
-col_prev1, col_prev2, col_prev3 = st.columns(3)
-colunas_pred = [col_prev1, col_prev2, col_prev3]
+# Seção estilo "Google Clima" com os cards horizontais por horário
+st.subheader("⏱️ Previsão Horária e Estimativa da IA")
+st.markdown("Acompanhamento contínuo e projeção inteligente para as próximas horas:")
 
-for i, coluna in enumerate(colunas_pred, start=1):
-    proxima_hora = (hora_atual + i) % 24
-    p_temp = modelo_temp.predict([[proxima_hora]])[0]
-    p_umid = modelo_umid.predict([[proxima_hora]])[0]
-    
+# Criamos colunas lado a lado simulando o painel horizontal de horários
+colunas_horarias = st.columns(6)
+
+# Exibimos a hora atual e as próximas 5 horas em blocos visuais (cards)
+for i, coluna in enumerate(colunas_horarias):
+    if i == 0:
+        h_exibida = hora_atual
+        t_exibida = temp_atual
+        u_exibida = umidade_atual
+        label_status = "Agora"
+        icone = "⛅"
+    else:
+        h_exibida = (hora_atual + i) % 24
+        t_exibida = modelo_temp.predict([[h_exibida]])[0]
+        u_exibida = modelo_umid.predict([[h_exibida]])[0]
+        label_status = f"+{i}h"
+        # Escolhe um emoji dinâmico baseado na umidade/temperatura prevista
+        icone = "🌧️" if u_exibida > 75 else ("☀️" if t_exibida > 24 else "🌤️")
+
     with coluna:
-        st.info(f"**Às {proxima_hora}:00 hrs**")
-        st.write(f"Temp Prevista: **{p_temp:.1f}°C**")
-        st.write(f"Umidade Prevista: **{p_umid:.1f}%**")
-
-st.divider()
-
-# Gráficos Duplos: Temperatura e Umidade (Desde a Meia-Noite)
-st.subheader("📈 Monitoramento Contínuo (Das 00:00 até o Horário Atual)")
-
-col_graf1, col_graf2 = st.columns(2)
-
-with col_graf1:
-    fig_temp = px.line(df, x='hora', y='temperatura', markers=True, title="Evolução da Temperatura (°C)")
-    fig_temp.update_traces(line_color='#FF4B4B')
-    st.plotly_chart(fig_temp, use_container_width=True)
-
-with col_graf2:
-    fig_umid = px.line(df, x='hora', y='umidade', markers=True, title="Evolução da Umidade Relativa (%)")
-    fig_umid.update_traces(line_color='#1C83E1')
-    st.plotly_chart(fig_umid, use_container_width=True)
+        st.markdown(f"""
+        <div style="background-color: #1e1e1e; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #333;">
+            <p style="margin: 0; font-size: 14px; color: #aaa;">{label_status}</p>
+            <h3 style="margin: 5px 0; color: #fff;">{h_exibida}:00</h3>
+            <p style="font-size: 24px; margin: 5px 0;">{icone
